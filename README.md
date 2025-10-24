@@ -1,7 +1,5 @@
-# calculadora_excel
-#criar pasta com um arquivo no excel para salvar o histórico da calculadora
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from openpyxl import Workbook, load_workbook
@@ -41,6 +39,14 @@ class Calculadora:
         except Exception:
             raise ValueError("Expressão inválida")
 
+    def juros_simples(self, capital, taxa, tempo):
+        """Retorna o montante com juros simples."""
+        return capital * (1 + (taxa / 100) * tempo)
+
+    def juros_compostos(self, capital, taxa, tempo):
+        """Retorna o montante com juros compostos."""
+        return capital * ((1 + (taxa / 100)) ** tempo)
+
 
 # ---------- Interface Gráfica ----------
 class CalculadoraGUI:
@@ -48,10 +54,11 @@ class CalculadoraGUI:
         self.calc = Calculadora()
         self.root = root
         self.root.title("🧮 Calculadora com Registro em Excel")
-        self.root.geometry("400x580")
+        self.root.geometry("400x640")
         self.root.resizable(False, False)
 
-        self.arquivo_excel = None  # Caminho escolhido pelo usuário
+        self.arquivo_excel = None  # Caminho do Excel
+        self.tema_atual = "cyborg"
 
         # ---------- Campo de exibição ----------
         self.display = ttk.Entry(root, justify="right", font=("Arial", 22))
@@ -83,10 +90,37 @@ class CalculadoraGUI:
         self.lista_resultados = tk.Listbox(root, height=8, font=("Consolas", 11))
         self.lista_resultados.pack(padx=10, pady=5, fill="both")
 
-        # ---------- Botão de salvar ----------
+        # ---------- Botões Extras ----------
+        frame_funcoes = ttk.Frame(root)
+        frame_funcoes.pack(pady=10)
+
+        ttk.Button(
+            frame_funcoes,
+            text="💰 Juros Simples",
+            bootstyle=WARNING,
+            width=18,
+            command=self.calcular_juros_simples
+        ).grid(row=0, column=0, padx=5, pady=5)
+
+        ttk.Button(
+            frame_funcoes,
+            text="📈 Juros Compostos",
+            bootstyle=PRIMARY,
+            width=18,
+            command=self.calcular_juros_compostos
+        ).grid(row=0, column=1, padx=5, pady=5)
+
+        ttk.Button(
+            frame_funcoes,
+            text="🎨 Trocar Tema",
+            bootstyle=(SECONDARY, OUTLINE),
+            width=18,
+            command=self.trocar_tema
+        ).grid(row=1, column=0, columnspan=2, pady=5)
+
         ttk.Button(
             root,
-            text="📁 Escolher local do arquivo Excel",
+            text="📁 Escolher arquivo Excel",
             bootstyle=(SUCCESS, OUTLINE),
             command=self.escolher_arquivo
         ).pack(pady=10)
@@ -101,7 +135,6 @@ class CalculadoraGUI:
                 resultado = self.calc.avaliar(expressao)
                 self.display.delete(0, tk.END)
                 self.display.insert(tk.END, str(resultado))
-
                 self.lista_resultados.insert(tk.END, f"{expressao} = {resultado}")
 
                 if self.arquivo_excel:
@@ -114,8 +147,8 @@ class CalculadoraGUI:
         else:
             self.display.insert(tk.END, char)
 
+    # ---------- Escolher arquivo ----------
     def escolher_arquivo(self):
-        """Abre janela para o usuário escolher ou criar o arquivo Excel."""
         caminho = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
             filetypes=[("Planilhas Excel", "*.xlsx")],
@@ -125,9 +158,59 @@ class CalculadoraGUI:
             self.arquivo_excel = caminho
             messagebox.showinfo("Arquivo selecionado", f"Resultados serão salvos em:\n{caminho}")
 
+    # ---------- Juros Simples ----------
+    def calcular_juros_simples(self):
+        try:
+            c = float(simpledialog.askstring("Juros Simples", "Digite o capital inicial (R$):"))
+            i = float(simpledialog.askstring("Juros Simples", "Digite a taxa (% ao período):"))
+            t = float(simpledialog.askstring("Juros Simples", "Digite o tempo (em períodos):"))
+            resultado = self.calc.juros_simples(c, i, t)
+            expressao = f"Juros Simples: C={c}, i={i}%, t={t}"
+            self.display.delete(0, tk.END)
+            self.display.insert(tk.END, str(round(resultado, 2)))
+            self.lista_resultados.insert(tk.END, f"{expressao} → M={round(resultado,2)}")
+
+            if self.arquivo_excel:
+                salvar_resultado_excel(expressao, round(resultado, 2), self.arquivo_excel)
+            else:
+                messagebox.showwarning("Aviso", "Escolha um arquivo Excel antes de salvar!")
+
+        except:
+            messagebox.showerror("Erro", "Valores inválidos para cálculo de juros simples!")
+
+    # ---------- Juros Compostos ----------
+    def calcular_juros_compostos(self):
+        try:
+            c = float(simpledialog.askstring("Juros Compostos", "Digite o capital inicial (R$):"))
+            i = float(simpledialog.askstring("Juros Compostos", "Digite a taxa (% ao período):"))
+            t = float(simpledialog.askstring("Juros Compostos", "Digite o tempo (em períodos):"))
+            resultado = self.calc.juros_compostos(c, i, t)
+            expressao = f"Juros Compostos: C={c}, i={i}%, t={t}"
+            self.display.delete(0, tk.END)
+            self.display.insert(tk.END, str(round(resultado, 2)))
+            self.lista_resultados.insert(tk.END, f"{expressao} → M={round(resultado,2)}")
+
+            if self.arquivo_excel:
+                salvar_resultado_excel(expressao, round(resultado, 2), self.arquivo_excel)
+            else:
+                messagebox.showwarning("Aviso", "Escolha um arquivo Excel antes de salvar!")
+
+        except:
+            messagebox.showerror("Erro", "Valores inválidos para cálculo de juros compostos!")
+
+    # ---------- Troca de tema ----------
+    def trocar_tema(self):
+        temas = ["cyborg", "flatly", "darkly", "solar", "morph", "superhero", "pulse"]
+        indice_atual = temas.index(self.tema_atual)
+        novo_tema = temas[(indice_atual + 1) % len(temas)]
+        self.root.style.theme_use(novo_tema)
+        self.tema_atual = novo_tema
+        messagebox.showinfo("Tema alterado", f"Tema atual: {novo_tema}")
+
 
 # ---------- Execução ----------
 if __name__ == "__main__":
-    app = ttk.Window(themename="cyborg")  # Tema moderno (pode trocar por 'flatly', 'darkly', 'solar', etc.)
+    app = ttk.Window(themename="cyborg")
     CalculadoraGUI(app)
     app.mainloop()
+
